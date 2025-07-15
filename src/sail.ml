@@ -372,7 +372,14 @@ let main() =
          C_backend.compile_ast (C_backend.initial_ctx type_envs) (!opt_includes_c) ast_c
        else ());
       (if !(opt_print_cgen)
-       then Cgen_backend.create_file "/home/mary/Documents/SAIL/riscv.cpu" ast
+       then
+         let cgen_out = match !opt_file_out with
+           | None -> (match !opt_file_arguments with
+                     | [] -> "out.cpu"
+                     | f::_ -> (Filename.remove_extension (Filename.basename f)) ^ ".cpu")
+           | Some prefix -> prefix ^ ".cpu"
+         in
+         Cgen_backend.create_file cgen_out ast
        else ());
       (if !(opt_print_lem)
        then
