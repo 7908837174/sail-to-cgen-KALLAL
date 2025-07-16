@@ -1,8 +1,8 @@
-# 🚀 MAJOR ENHANCEMENT: Complete CGEN Backend Rewrite - Fixes Issues #2, #3, #4, #6
+# 🚀 MAJOR ENHANCEMENT: Complete CGEN Backend Rewrite + UDB Extension Schema - Fixes Issues #2, #3, #4, #6, #307
 
-## 🎯 **Major Enhancement: Complete CGEN Backend Functionality**
+## 🎯 **Major Enhancement: Complete CGEN Backend Functionality + UDB Extension Identification**
 
-This PR delivers a **comprehensive rewrite** of the CGEN backend, transforming it from a proof-of-concept with hardcoded dummy output into a **fully functional tool** capable of generating complete CGEN CPU descriptions from real-world ISA specifications.
+This PR delivers a **comprehensive rewrite** of the CGEN backend, transforming it from a proof-of-concept with hardcoded dummy output into a **fully functional tool** capable of generating complete CGEN CPU descriptions from real-world ISA specifications, with intelligent UDB extension identification that eliminates hardcoded Ruby lists.
 
 ## 🔧 **Issues Fixed**
 
@@ -30,9 +30,18 @@ $ sail -cgen -o /nonexistent/dir/output test.sail
 Error: Output directory does not exist: /nonexistent/dir
 ```
 
-### ✅ **Issue #6: Missing Instruction/Type Support** 
-**BEFORE**: Only processed registers, ignored instructions/types ❌  
+### ✅ **Issue #6: Missing Instruction/Type Support**
+**BEFORE**: Only processed registers, ignored instructions/types ❌
 **AFTER**: Complete support for all Sail definition types ✅
+
+### ✅ **Issue #307: UDB Extension Identification**
+**BEFORE**: UDB extensions hardcoded in Ruby code, non-obvious to find ❌
+**AFTER**: Schema-based extension identification, automatic detection ✅
+
+```bash
+# No more hardcoded Ruby lists - extensions detected automatically
+sail -cgen test_udb_extensions.sail  # Automatically detects Zicsr, Zba, etc.
+```
 
 ## 🚀 **New Features**
 
@@ -47,6 +56,7 @@ The enhanced backend now processes:
 - ✅ **Scattered Definitions** → Instruction patterns
 - ✅ **Mapping Definitions** → Encoding/decoding
 - ✅ **Value Specifications** → Function signatures
+- ✅ **UDB Extension Detection** → Automatic schema-based identification
 
 ### **Real CGEN Output**
 
@@ -67,6 +77,10 @@ bitfield instruction : bits(32) = {
 
 register PC : bits(64)
 register configuration MISA : bits(64) = 0x8000000000141101
+
+// UDB Extensions (Issue #307)
+register Zicsr_mstatus : bits(64)
+enum Zba_ops = {SH1ADD, SH2ADD, SH3ADD}
 ```
 
 **Generated CGEN:**
@@ -119,6 +133,21 @@ register configuration MISA : bits(64) = 0x8000000000141101
   (attrs all-isas all-machs)
   (type configuration)
 )
+
+;; UDB Extension - automatically detected (Issue #307)
+(define-hardware
+  (name h-Zicsr_mstatus)
+  (comment Zicsr_mstatus)
+  (attrs all-isas all-machs udb-defined extension-name=Zicsr extension-category=Control and Status Register)
+  (type register)
+)
+
+(define-operand-type Zba_ops
+  (name "Zba_ops")
+  (comment "Zba_ops operand type")
+  (attrs all-isas all-machs udb-defined extension-name=Zba extension-category=Address Generation)
+  (values SH1ADD SH2ADD SH3ADD)
+)
 ```
 
 ## 📁 **Files Changed**
@@ -129,10 +158,14 @@ register configuration MISA : bits(64) = 0x8000000000141101
 
 ### **Test Cases & Documentation**
 - **`test_cgen_enhanced.sail`** - Basic functionality test
-- **`test_instruction_defs.sail`** - Instruction definition test  
+- **`test_instruction_defs.sail`** - Instruction definition test
 - **`test_comprehensive_cgen.sail`** - Complete ISA specification test
+- **`test_udb_extensions.sail`** - UDB extension identification test (Issue #307)
 - **`test_cgen_backend.py`** - Automated test suite
+- **`test_udb_extension_detection.py`** - UDB extension verification (Issue #307)
 - **`CGEN_BACKEND_ENHANCEMENTS.md`** - Comprehensive documentation
+- **`UDB_EXTENSION_ENHANCEMENT.md`** - UDB extension documentation (Issue #307)
+- **`ISSUE_307_RESOLUTION.md`** - Issue #307 resolution summary
 - **`CHANGES_SUMMARY.md`** - Detailed changes summary
 
 ## 🧪 **Testing**
@@ -150,6 +183,9 @@ cat test_comprehensive_cgen.cpu
 # Test error handling
 sail -cgen -o /invalid/path/test test.sail
 # Shows: Error: Output directory does not exist: /invalid/path
+
+# Test UDB extension detection (Issue #307)
+python3 test_udb_extension_detection.py
 ```
 
 ## 💥 **Impact**
@@ -159,6 +195,7 @@ sail -cgen -o /invalid/path/test test.sail
 - ❌ Generates meaningless dummy output only
 - ❌ Silent failures with no debugging info
 - ❌ Ignores instruction definitions completely
+- ❌ UDB extensions hardcoded in Ruby code (Issue #307)
 - ❌ No support for real ISA specifications
 
 **After this PR:**
@@ -167,6 +204,7 @@ sail -cgen -o /invalid/path/test test.sail
 - ✅ Generates real CGEN CPU descriptions
 - ✅ Clear error messages and validation
 - ✅ Supports all major Sail definition types
+- ✅ Schema-based UDB extension identification (Issue #307)
 - ✅ Ready for real-world ISA development
 
 ## 🎯 **Use Cases Enabled**
@@ -194,10 +232,11 @@ sail -cgen -o /invalid/path/test test.sail
 
 This PR transforms the CGEN backend from a **proof-of-concept** into a **production-ready tool**:
 
-- **4 Critical Issues Fixed** (#2, #3, #4, #6)
+- **5 Critical Issues Fixed** (#2, #3, #4, #6, #307)
 - **Complete AST Processing** for all Sail definition types
 - **Real CGEN Generation** from ISA specifications
-- **Cross-Platform Compatibility** 
+- **Schema-Based UDB Extension Identification** (Issue #307)
+- **Cross-Platform Compatibility**
 - **Comprehensive Test Suite**
 - **Extensive Documentation**
 
@@ -205,7 +244,7 @@ This PR transforms the CGEN backend from a **proof-of-concept** into a **product
 
 ---
 
-*This PR makes the CGEN backend functional for the first time, enabling real-world ISA development workflows and CPU design automation.*
+*This PR makes the CGEN backend functional for the first time, enabling real-world ISA development workflows and CPU design automation, with intelligent UDB extension identification that eliminates hardcoded Ruby lists.*
 
-**Author**: Kallal Mukherjee (@7908837174)  
-**Fixes**: #2, #3, #4, #6
+**Author**: Kallal Mukherjee (@7908837174)
+**Fixes**: #2, #3, #4, #6, #307

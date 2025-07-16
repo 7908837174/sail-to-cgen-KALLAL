@@ -26,6 +26,11 @@ This document describes the comprehensive enhancements made to the CGEN backend 
 - **Solution**: Added support for all major Sail definition types
 - **Impact**: Complete CGEN generation from ISA specifications
 
+### Issue #307: UDB Extension Identification ✅ ENHANCED
+- **Problem**: UDB extensions identified by hardcoded names in Ruby code
+- **Solution**: Schema-based extension identification with automatic detection
+- **Impact**: Extensible system without code changes for new UDB extensions
+
 ## New Features
 
 ### 1. Comprehensive AST Processing
@@ -61,6 +66,11 @@ The enhanced CGEN backend now processes:
 
 - ✅ **Value Specifications** (`DEF_spec`)
   - Function type signatures
+
+- ✅ **UDB Extension Identification** (Issue #307)
+  - Automatic detection of UDB-defined extensions
+  - Schema-based extension metadata
+  - Extensible without code changes
 
 ### 2. CGEN Output Generation
 
@@ -112,6 +122,24 @@ The enhanced CGEN backend now processes:
 )
 ```
 
+#### UDB Extension Definitions (Issue #307)
+```
+;; UDB Extension - automatically detected
+(define-hardware
+  (name h-Zicsr_mstatus)
+  (comment Zicsr_mstatus)
+  (attrs all-isas all-machs udb-defined extension-name=Zicsr extension-category=Control and Status Register)
+  (type register)
+)
+
+(define-operand-type Zba_ops
+  (name "Zba_ops")
+  (comment "Zba_ops operand type")
+  (attrs all-isas all-machs udb-defined extension-name=Zba extension-category=Address Generation)
+  (values SH1ADD SH2ADD SH3ADD)
+)
+```
+
 ### 3. Enhanced Error Handling
 
 - **Directory Validation**: Checks output directory exists before processing
@@ -145,16 +173,25 @@ The repository includes comprehensive test cases:
 1. **`test_cgen_enhanced.sail`** - Basic functionality test
 2. **`test_instruction_defs.sail`** - Instruction definition test
 3. **`test_comprehensive_cgen.sail`** - Complete ISA specification test
-4. **`test_cgen_backend.py`** - Automated test suite
+4. **`test_udb_extensions.sail`** - UDB extension identification test (Issue #307)
+5. **`test_cgen_backend.py`** - Automated test suite
+6. **`test_udb_extension_detection.py`** - UDB extension detection verification
 
 ### Running Tests
 ```bash
-# Run the test suite
+# Run the main test suite
 python3 test_cgen_backend.py
+
+# Test UDB extension detection (Issue #307)
+python3 test_udb_extension_detection.py
 
 # Manual testing
 sail -cgen test_comprehensive_cgen.sail
 cat test_comprehensive_cgen.cpu
+
+# Test UDB extension identification
+sail -cgen test_udb_extensions.sail
+cat test_udb_extensions.cpu
 ```
 
 ## Technical Implementation
@@ -167,11 +204,13 @@ cat test_comprehensive_cgen.cpu
 ### Key Functions
 - `list_definitions` - Main AST processing function
 - `process_type_def` - Handles type definitions
-- `process_register` - Handles register definitions  
+- `process_register` - Handles register definitions
 - `process_scattered_def` - Handles scattered definitions
 - `generate_instruction` - Generates CGEN instruction definitions
 - `generate_operand_type` - Generates CGEN operand types
 - `generate_iformat` - Generates CGEN instruction formats
+- `detect_udb_extension` - Identifies UDB-defined extensions (Issue #307)
+- `print_extension_metadata` - Embeds extension metadata in schema
 
 ## Future Enhancements
 
@@ -195,9 +234,9 @@ cat test_comprehensive_cgen.cpu
 
 ## Summary
 
-The enhanced CGEN backend transforms the Sail to CGEN project from a proof-of-concept with hardcoded dummy output into a fully functional tool capable of generating complete CGEN CPU descriptions from real-world ISA specifications.
+The enhanced CGEN backend transforms the Sail to CGEN project from a proof-of-concept with hardcoded dummy output into a fully functional tool capable of generating complete CGEN CPU descriptions from real-world ISA specifications, with intelligent UDB extension identification.
 
-**Before**: Only dummy hardcoded output ❌  
-**After**: Complete CGEN generation from Sail specifications ✅
+**Before**: Only dummy hardcoded output + hardcoded extension lists ❌
+**After**: Complete CGEN generation + schema-based extension identification ✅
 
-This makes the tool suitable for actual ISA development and CPU design workflows.
+This makes the tool suitable for actual ISA development and CPU design workflows, with extensible support for UDB-defined extensions without code maintenance.

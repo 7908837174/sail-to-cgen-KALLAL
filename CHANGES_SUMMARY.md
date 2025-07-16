@@ -89,9 +89,30 @@ Automated test suite that:
 - Validates generated CGEN content
 - Checks for all enhanced features
 
-### 5. `CGEN_BACKEND_ENHANCEMENTS.md`
+### 5. `test_udb_extensions.sail`
+UDB extension identification test case:
+- Various UDB extension types (Zicsr, Zifencei, Zba, Zbb, Zknd)
+- Explicit UDB markers (UDB_ prefix)
+- Standard RISC-V instructions (should not be marked)
+- Comprehensive extension detection scenarios
+
+### 6. `test_udb_extension_detection.py`
+Automated UDB extension detection test suite:
+- Verifies automatic extension pattern recognition
+- Tests explicit UDB marker detection
+- Validates schema-embedded extension metadata
+- Ensures standard instructions not marked as UDB
+
+### 7. `UDB_EXTENSION_ENHANCEMENT.md`
+Detailed documentation for Issue #307:
+- Problem statement and solution architecture
+- Extension detection algorithms
+- Schema metadata format
+- Migration guide and examples
+
+### 8. `CGEN_BACKEND_ENHANCEMENTS.md`
 Comprehensive documentation covering:
-- Issues fixed (#2, #3, #4, #6)
+- Issues fixed (#2, #3, #4, #6, #307)
 - New features implemented
 - Usage examples
 - Technical implementation details
@@ -101,9 +122,10 @@ Comprehensive documentation covering:
 
 ### Issues Fixed
 - **Issue #2**: Hardcoded output path ✅ FIXED
-- **Issue #3**: Commented out functionality ✅ FIXED  
+- **Issue #3**: Commented out functionality ✅ FIXED
 - **Issue #4**: Silent error handling ✅ FIXED
 - **Issue #6**: Missing instruction/type support ✅ ENHANCED
+- **Issue #307**: UDB extension identification ✅ ENHANCED
 
 ### Before vs After
 
@@ -112,6 +134,7 @@ Comprehensive documentation covering:
 - ❌ Generates only hardcoded dummy output
 - ❌ Silent failures with no error messages
 - ❌ Ignores 90% of Sail specification (only processes registers)
+- ❌ UDB extensions hardcoded in Ruby code
 - ❌ Unusable for real ISA development
 
 **AFTER**:
@@ -119,6 +142,7 @@ Comprehensive documentation covering:
 - ✅ Generates real CGEN from Sail specifications
 - ✅ Clear error messages and validation
 - ✅ Processes complete Sail specifications (all definition types)
+- ✅ Schema-based UDB extension identification
 - ✅ Ready for real-world ISA development
 
 ### New Capabilities
@@ -148,4 +172,4 @@ Comprehensive documentation covering:
 - **Instruction Definitions** (from union variants)
 - **Comments and Documentation** (from all definitions)
 
-This enhancement transforms the CGEN backend from a proof-of-concept into a production-ready tool suitable for real ISA development workflows.
+This enhancement transforms the CGEN backend from a proof-of-concept into a production-ready tool suitable for real ISA development workflows, with intelligent UDB extension identification that eliminates the need for hardcoded extension lists in Ruby code.

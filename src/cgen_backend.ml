@@ -3,10 +3,39 @@ open Ast_util
 open PPrint
 
 (* Enhanced CGEN backend for Sail to CGEN translation
-   Supports registers, types, instructions, and scattered definitions *)
+   Supports registers, types, instructions, and scattered definitions
 
-(* Describe information required by hardware *)
-type hardware = string * string * (string list)
+   Extension Schema Support (Issue #307):
+   - Adds UDB extension identification in schema instead of hardcoded names
+   - Supports extensible extension metadata without code changes
+*)
+
+(* Extension metadata for UDB extension identification (Issue #307) *)
+type extension_metadata = {
+  is_udb_defined: bool;
+  extension_name: string option;
+  extension_version: string option;
+  extension_category: string option;
+}
+
+(* Default extension metadata for non-UDB extensions *)
+let default_extension_metadata = {
+  is_udb_defined = false;
+  extension_name = None;
+  extension_version = None;
+  extension_category = None;
+}
+
+(* Create UDB extension metadata *)
+let make_udb_extension_metadata name version category = {
+  is_udb_defined = true;
+  extension_name = Some name;
+  extension_version = version;
+  extension_category = category;
+}
+
+(* Describe information required by hardware with extension metadata *)
+type hardware = string * string * (string list) * extension_metadata
 
 (* Iterator pg90 *)
 let rec print_iter out_channel l =
@@ -19,8 +48,32 @@ let rec print_iter out_channel l =
 let print_indices out_channel l =
     print_iter out_channel l
 
-(* Prints the define-hardware function *)
-let define_hardware out_channel (name, hw_type, indices) =
+(* Prints extension metadata as CGEN attributes *)
+let print_extension_metadata out_channel ext_meta =
+  if ext_meta.is_udb_defined then (
+    output_string out_channel "  (attrs all-isas all-machs udb-defined";
+    (match ext_meta.extension_name with
+     | Some name ->
+       output_string out_channel " extension-name=";
+       output_string out_channel name
+     | None -> ());
+    (match ext_meta.extension_version with
+     | Some version ->
+       output_string out_channel " extension-version=";
+       output_string out_channel version
+     | None -> ());
+    (match ext_meta.extension_category with
+     | Some category ->
+       output_string out_channel " extension-category=";
+       output_string out_channel category
+     | None -> ());
+    output_string out_channel ")\n"
+  ) else (
+    output_string out_channel "  (attrs all-isas all-machs)\n"
+  )
+
+(* Prints the define-hardware function with extension metadata support *)
+let define_hardware out_channel (name, hw_type, indices, ext_meta) =
   output_string out_channel "(define-hardware\n";
   output_string out_channel "  (name h-";
   output_string out_channel name;
@@ -28,7 +81,7 @@ let define_hardware out_channel (name, hw_type, indices) =
   output_string out_channel "  (comment ";
   output_string out_channel name;
   output_string out_channel ")\n";
-  output_string out_channel "  (attrs all-isas all-machs)\n";
+  print_extension_metadata out_channel ext_meta;
   output_string out_channel "  (type ";
   output_string out_channel hw_type;
   output_string out_channel ")\n";
@@ -39,8 +92,50 @@ let define_hardware out_channel (name, hw_type, indices) =
       print_indices out_channel indices;
       output_string out_channel ")\n)\n"
 
-(* Generate CGEN instruction format from bitfield type *)
+(* Extension detection logic (Issue #307) *)
+let detect_udb_extension name =
+  (* Check for UDB extension naming patterns *)
+  let name_str = string_of_id name in
+  let udb_patterns = [
+    ("Zicsr", "Control and Status Register");
+    ("Zifencei", "Instruction-Fetch Fence");
+    ("Zihintpause", "Pause Hint");
+    ("Zmmul", "Integer Multiplication");
+    ("Zba", "Address Generation");
+    ("Zbb", "Basic Bit Manipulation");
+    ("Zbc", "Carry-less Multiplication");
+    ("Zbs", "Single-bit Instructions");
+    ("Zknd", "NIST Suite: AES Decryption");
+    ("Zkne", "NIST Suite: AES Encryption");
+    ("Zknh", "NIST Suite: Hash Functions");
+    ("Zksed", "ShangMi Suite: SM4 Block Cipher");
+    ("Zksh", "ShangMi Suite: SM3 Hash Function");
+  ] in
+
+  (* Check if name matches any UDB extension pattern *)
+  let rec check_patterns = function
+    | [] -> default_extension_metadata
+    | (pattern, category) :: rest ->
+      if String.length name_str >= String.length pattern &&
+         String.sub name_str 0 (String.length pattern) = pattern then
+        make_udb_extension_metadata pattern None (Some category)
+      else
+        check_patterns rest
+  in
+
+  (* Also check for explicit UDB markers in comments or annotations *)
+  if String.contains name_str '_' then
+    let parts = String.split_on_char '_' name_str in
+    match parts with
+    | "UDB" :: ext_name :: _ ->
+      make_udb_extension_metadata ext_name None (Some "UDB-defined")
+    | _ -> check_patterns udb_patterns
+  else
+    check_patterns udb_patterns
+
+(* Generate CGEN instruction format from bitfield type with extension metadata *)
 let generate_iformat out_channel id fields =
+  let ext_meta = detect_udb_extension id in
   output_string out_channel "(define-iformat f-";
   output_string out_channel (string_of_id id);
   output_string out_channel "\n";
@@ -50,6 +145,7 @@ let generate_iformat out_channel id fields =
   output_string out_channel "  (comment \"";
   output_string out_channel (string_of_id id);
   output_string out_channel " instruction format\")\n";
+  print_extension_metadata out_channel ext_meta;
   output_string out_channel "  (length 32)\n";
   output_string out_channel "  (fields\n";
   List.iter (fun (field_id, range) ->
@@ -62,8 +158,9 @@ let generate_iformat out_channel id fields =
   ) fields;
   output_string out_channel "  )\n)\n\n"
 
-(* Generate CGEN operand type from enum *)
+(* Generate CGEN operand type from enum with extension metadata *)
 let generate_operand_type out_channel id variants =
+  let ext_meta = detect_udb_extension id in
   output_string out_channel "(define-operand-type ";
   output_string out_channel (string_of_id id);
   output_string out_channel "\n";
@@ -73,6 +170,7 @@ let generate_operand_type out_channel id variants =
   output_string out_channel "  (comment \"";
   output_string out_channel (string_of_id id);
   output_string out_channel " operand type\")\n";
+  print_extension_metadata out_channel ext_meta;
   output_string out_channel "  (values";
   List.iter (fun variant_id ->
     output_string out_channel " ";
@@ -80,8 +178,9 @@ let generate_operand_type out_channel id variants =
   ) variants;
   output_string out_channel ")\n)\n\n"
 
-(* Generate CGEN instruction definition from union variant *)
+(* Generate CGEN instruction definition from union variant with extension metadata *)
 let generate_instruction out_channel variant_id params =
+  let ext_meta = detect_udb_extension variant_id in
   output_string out_channel "(define-insn ";
   output_string out_channel (String.lowercase_ascii (string_of_id variant_id));
   output_string out_channel "\n";
@@ -91,7 +190,7 @@ let generate_instruction out_channel variant_id params =
   output_string out_channel "  (comment \"";
   output_string out_channel (string_of_id variant_id);
   output_string out_channel " instruction\")\n";
-  output_string out_channel "  (attrs all-isas all-machs)\n";
+  print_extension_metadata out_channel ext_meta;
   output_string out_channel "  (syntax \"";
   output_string out_channel (String.lowercase_ascii (string_of_id variant_id));
   (* Add parameter placeholders in syntax *)
@@ -106,7 +205,7 @@ let generate_instruction out_channel variant_id params =
   output_string out_channel "    (nop)\n";
   output_string out_channel "  )\n)\n\n"
 
-(* Process mapping definitions *)
+(* Process mapping definitions with extension metadata *)
 let do_mapdef_registers out_channel (MD_aux (MD_mapping (id, _, clauses), _)) =
   output_string out_channel ";; Mapping definition: ";
   output_string out_channel (string_of_id id);
@@ -114,27 +213,32 @@ let do_mapdef_registers out_channel (MD_aux (MD_mapping (id, _, clauses), _)) =
   output_string out_channel ";; Clauses: ";
   output_string out_channel (string_of_int (List.length clauses));
   output_string out_channel "\n";
-  let hardware = (string_of_id id, "mapping", []) in
+  let ext_meta = detect_udb_extension id in
+  let hardware = (string_of_id id, "mapping", [], ext_meta) in
   define_hardware out_channel hardware
 
-(* Process register definitions *)
+(* Process register definitions with extension metadata *)
 let process_register out_channel (DEC_aux (dec_aux, _)) =
   match dec_aux with
   | DEC_reg (typ, id) ->
      let reg_name = string_of_id id in
-     let hardware = (reg_name, "register", []) in
+     let ext_meta = detect_udb_extension id in
+     let hardware = (reg_name, "register", [], ext_meta) in
      define_hardware out_channel hardware
   | DEC_config (id, typ, exp) ->
      let reg_name = string_of_id id in
-     let hardware = (reg_name, "configuration", []) in
+     let ext_meta = detect_udb_extension id in
+     let hardware = (reg_name, "configuration", [], ext_meta) in
      define_hardware out_channel hardware
   | DEC_alias (id, exp) ->
      let reg_name = string_of_id id in
-     let hardware = (reg_name, "alias", []) in
+     let ext_meta = detect_udb_extension id in
+     let hardware = (reg_name, "alias", [], ext_meta) in
      define_hardware out_channel hardware
   | DEC_typ_alias (typ, id, exp) ->
      let reg_name = string_of_id id in
-     let hardware = (reg_name, "typed_alias", []) in
+     let ext_meta = detect_udb_extension id in
+     let hardware = (reg_name, "typed_alias", [], ext_meta) in
      define_hardware out_channel hardware
 
 (* Process type definitions *)
@@ -167,7 +271,8 @@ let process_type_def out_channel (TD_aux (td_aux, _)) =
      output_string out_channel ";; Record type: ";
      output_string out_channel (string_of_id id);
      output_string out_channel "\n";
-     let hardware = (string_of_id id, "record", []) in
+     let ext_meta = detect_udb_extension id in
+     let hardware = (string_of_id id, "record", [], ext_meta) in
      define_hardware out_channel hardware
   | TD_abbrev (id, _, _, typ) ->
      output_string out_channel ";; Type abbreviation: ";

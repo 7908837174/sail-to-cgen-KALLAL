@@ -21,29 +21,34 @@ git add .
 
 Write-Host "Committing changes..." -ForegroundColor Yellow
 $commitMessage = @"
-🚀 MAJOR: Complete CGEN Backend Rewrite - Fixes #2, #3, #4, #6
+🚀 MAJOR: Complete CGEN Backend Rewrite + UDB Extension Schema - Fixes #2, #3, #4, #6, #307
 
 - Fixed hardcoded output path (Issue #2)
-- Restored commented out functionality (Issue #3) 
+- Restored commented out functionality (Issue #3)
 - Added comprehensive error handling (Issue #4)
 - Added complete instruction/type support (Issue #6)
+- Added UDB extension schema identification (Issue #307)
 
 Features:
 ✅ Complete AST processing for all Sail definition types
 ✅ Real CGEN generation (operand types, instruction formats, instructions)
+✅ Schema-based UDB extension identification (no hardcoded Ruby lists)
+✅ Automatic UDB extension detection and metadata embedding
 ✅ Cross-platform compatibility
 ✅ Comprehensive test suite
 ✅ Extensive documentation
 
 Files changed:
-- src/cgen_backend.ml: Complete rewrite with enhanced functionality
+- src/cgen_backend.ml: Complete rewrite with UDB extension detection
 - src/sail.ml: Fixed hardcoded path, added dynamic output resolution
-- Added comprehensive test cases and documentation
+- Added UDB extension test cases and verification scripts
+- Added comprehensive documentation for all enhancements
 
-This transforms the CGEN backend from proof-of-concept to production-ready tool.
+This transforms the CGEN backend from proof-of-concept to production-ready tool
+with intelligent UDB extension identification that eliminates hardcoded lists.
 
 Author: Kallal Mukherjee (@7908837174)
-Fixes: #2, #3, #4, #6
+Fixes: #2, #3, #4, #6, #307
 "@
 
 git commit -m $commitMessage
@@ -60,7 +65,7 @@ Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Go to: https://github.com/embecosm/sail-to-cgen" -ForegroundColor Cyan
 Write-Host "2. Click 'New Pull Request'" -ForegroundColor Cyan
 Write-Host "3. Select: base: master ← compare: 7908837174:feature/cgen-backend-enhancement" -ForegroundColor Cyan
-Write-Host "4. Use title: '🚀 MAJOR ENHANCEMENT: Complete CGEN Backend Rewrite - Fixes Issues #2, #3, #4, #6'" -ForegroundColor Cyan
+Write-Host "4. Use title: '🚀 MAJOR ENHANCEMENT: Complete CGEN Backend Rewrite + UDB Extension Schema - Fixes Issues #2, #3, #4, #6, #307'" -ForegroundColor Cyan
 Write-Host "5. Copy content from PR_DESCRIPTION.md as the PR body" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Green
 
