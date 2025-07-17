@@ -65,6 +65,7 @@ let opt_print_c = ref false
 let opt_print_latex = ref false
 let opt_print_coq = ref false
 let opt_print_cgen = ref false
+let opt_cgen_output = ref None
 let opt_memo_z3 = ref false
 let opt_sanity = ref false
 let opt_includes_c = ref ([]:string list)
@@ -150,6 +151,9 @@ let options = Arg.align ([
   ( "-cgen",
     Arg.Set opt_print_cgen,
     " Generate CGEN source");
+  ( "-cgen_output",
+    Arg.String (fun f -> opt_cgen_output := Some f),
+    "<filename> set output file for CGEN backend");
   ( "-lem",
     Arg.Set opt_print_lem,
     " output a Lem translated version of the input");
@@ -372,7 +376,14 @@ let main() =
          C_backend.compile_ast (C_backend.initial_ctx type_envs) (!opt_includes_c) ast_c
        else ());
       (if !(opt_print_cgen)
-       then Cgen_backend.create_file "/home/mary/Documents/SAIL/riscv.cpu" ast
+       then
+         let cgen_output = match !opt_cgen_output with
+           | Some f -> f
+           | None -> (match !opt_file_out with
+                     | Some f -> f ^ ".cpu"
+                     | None -> "out.cpu")
+         in
+         Cgen_backend.create_file cgen_output ast
        else ());
       (if !(opt_print_lem)
        then

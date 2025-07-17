@@ -2,12 +2,28 @@ open Ast
 open Ast_util
 open PPrint
 
-(* out_name = "/home/mary/Documents/SAIL/riscv.cpu"
-   Useful files: riscv_insts_base.sail : instruction definitions
-   riscv_types.sail      : registers *)
+(* CGEN backend for generating CPU descriptions from Sail specifications *)
 
 (* Describe information required by hardware *)
 type hardware = string * string * (string list)
+
+(* Map Sail types to CGEN types *)
+let rec sail_typ_to_cgen_typ = function
+  | Typ_aux (Typ_app (Id_aux (Id "bits", _), [A_aux (A_nexp (Nexp_aux (Nexp_constant n, _)), _)]), _) ->
+    let width = Big_int.to_int n in
+    if width <= 8 then "register QI"
+    else if width <= 16 then "register HI"
+    else if width <= 32 then "register SI"
+    else if width <= 64 then "register DI"
+    else "register TI"
+  | Typ_aux (Typ_app (Id_aux (Id "vector", _), [A_aux (A_nexp size, _); _; A_aux (A_typ elem_typ, _)]), _) ->
+    let elem_type = sail_typ_to_cgen_typ elem_typ in
+    elem_type (* For vector registers, use the element type *)
+  | Typ_aux (Typ_app (Id_aux (Id "register", _), [A_aux (A_typ inner_typ, _)]), _) ->
+    sail_typ_to_cgen_typ inner_typ
+  | Typ_aux (Typ_id (Id_aux (Id "bool", _)), _) ->
+    "register QI" (* Boolean as 1-bit register *)
+  | _ -> "register SI" (* default fallback *)
 
 (* Iterator pg90 *)
 let rec print_iter out_channel l =
@@ -20,54 +36,71 @@ let rec print_iter out_channel l =
 let print_indices out_channel l =
     print_iter out_channel l
 
-(* Prints the define-hardware function *)
+(* Generate CGEN hardware definition for a register *)
 let define_hardware out_channel (name, hw_type, indices) =
   output_string out_channel "(define-hardware\n";
   output_string out_channel "  (name h-";
   output_string out_channel name;
   output_string out_channel ")\n";
-  output_string out_channel "  (comment ";
+  output_string out_channel "  (comment \"";
   output_string out_channel name;
-  output_string out_channel ")\n";
+  output_string out_channel "\")\n";
   output_string out_channel "  (attrs all-isas all-machs)\n";
   output_string out_channel "  (type ";
   output_string out_channel hw_type;
   output_string out_channel ")\n";
   match indices with
-    | [] -> output_string out_channel ")\n"
+    | [] -> output_string out_channel ")\n\n"
     | h::t ->
       output_string out_channel "  (indices ";
       print_indices out_channel indices;
-      output_string out_channel ")\n)\n"
+      output_string out_channel ")\n)\n\n"
 
+(* Extract register information from a register declaration *)
+let process_register_dec out_channel = function
+  | DEC_aux (DEC_reg (typ, id), _) ->
+    let reg_name = string_of_id id in
+    let cgen_type = sail_typ_to_cgen_typ typ in
+    let hardware = (reg_name, cgen_type, []) in
+    define_hardware out_channel hardware
+  | DEC_aux (DEC_config (id, typ, _), _) ->
+    let reg_name = string_of_id id in
+    let cgen_type = sail_typ_to_cgen_typ typ in
+    let hardware = (reg_name, cgen_type, []) in
+    define_hardware out_channel hardware
+  | _ -> () (* Skip other declaration types *)
+
+(* Process mapping definitions (currently just outputs info) *)
 let do_mapdef_registers out_channel (MD_aux (MD_mapping (_, _, clauses), _)) =
-  output_string out_channel ("Mapping has " ^ string_of_int (List.length clauses) ^ " clauses");
-  output_string out_channel "\n"
+  output_string out_channel ("(* Mapping with " ^ string_of_int (List.length clauses) ^ " clauses *)\n")
 
-let print_hardware out_channel =
-  let indices = ["(x0 0)"; "(x1 1)"; "(x2 2)"] in
-    let hardware = ("name", "type", indices) in
-      define_hardware out_channel hardware
-
-(*let rec list_registers out_channel = function
+(* Process all definitions in the AST to extract registers *)
+let rec process_definitions out_channel = function
   | [] -> ()
   | (DEF_reg_dec reg) :: defs ->
-     print_string (Pretty_print_sail.to_string (Pretty_print_sail.doc_dec reg));
-     print_newline;
-     print_hardware out_channel;
-     list_registers out_channel defs
+     process_register_dec out_channel reg;
+     process_definitions out_channel defs
   | (DEF_mapdef mapdef) :: defs ->
      do_mapdef_registers out_channel mapdef;
-     list_registers out_channel defs
+     process_definitions out_channel defs
   | def :: defs ->
-     list_registers out_channel defs*)
+     process_definitions out_channel defs
 
-(* Called in sail.ml *)
+(* Main function called from sail.ml to generate CGEN file *)
 let create_file out_name (Defs defs) =
   let ochannel = open_out out_name in
     try
-    (*list_registers ochannel defs;*)
-      print_hardware ochannel;
+      (* Write CGEN file header *)
+      output_string ochannel ";; CGEN CPU description generated from Sail specification\n";
+      output_string ochannel ";; This file contains hardware register definitions\n\n";
+
+      (* Process all definitions to extract and generate register hardware *)
+      process_definitions ochannel defs;
+
+      (* Write footer *)
+      output_string ochannel ";; End of generated CGEN file\n";
       close_out ochannel
     with
-      _ -> close_out ochannel
+      exn ->
+        close_out ochannel;
+        raise exn
